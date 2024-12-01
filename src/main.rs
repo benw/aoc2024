@@ -13,7 +13,7 @@ fn main() {
     }
     left.sort();
     right.sort();
-    let dist1: u32 = left.clone().into_iter().zip(right.clone().into_iter()).map(|(a, b)| a.max(b) - a.min(b)).sum();
+    let dist1: u32 = left.iter().zip(right.iter()).map(|(a, b)| a.max(b) - a.min(b)).sum();
     println!("Part one: {:?}", dist1);
 
     let mut rmap: HashMap<u32, u32> = HashMap::new();
