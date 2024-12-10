@@ -4,9 +4,15 @@ const W: usize = 43;
 const H: usize = 43;
 
 #[derive(Clone, Default)]
+struct Score {
+    dest: HashSet<(i32, i32)>,
+    rating: u32,
+}
+
+#[derive(Clone, Default)]
 struct Cell {
     level: i8,
-    score: Option<HashSet<(i32, i32)>>,
+    score: Option<Score>,
 }
 
 #[derive(Clone)]
@@ -29,27 +35,33 @@ impl Grid {
         }
     }
 
-    fn score(&mut self, x: i32, y: i32, level: i8) -> HashSet<(i32, i32)> {
+    fn score(&mut self, x: i32, y: i32, level: i8) -> Score {
         if let Some(cell) = self.get_cell(x, y) {
             if level != cell.level {
-                return HashSet::new();
+                return Default::default();
             }
             if let Some(score) = cell.score.as_ref() {
                 return score.clone();
             }
-            let mut score = HashSet::new();
+            let mut score = Score {
+                dest: HashSet::new(),
+                rating: 0,
+            };
             if level == 9 {
-                score.insert((x, y));
+                score.dest.insert((x, y));
+                score.rating += 1;
                 return score;
             }
             for (dx, dy) in [(1, 0), (-1, 0), (0, 1), (0, -1)] {
-                score.extend(self.score(x + dx, y + dy, level + 1));
+                let next = self.score(x + dx, y + dy, level + 1);
+                score.dest.extend(next.dest);
+                score.rating += next.rating;
             }
             let cell = self.get_cell(x, y).unwrap();
             cell.score = Some(score.clone());
             score
         } else {
-            HashSet::new()
+            Default::default()
         }
     }
 }
@@ -66,10 +78,14 @@ fn main() {
     }
 
     let mut total = 0;
+    let mut total_rating = 0;
     for y in 0..H {
         for x in 0..W {
-            total += grid.score(x as i32, y as i32, 0).len();
+            let score = grid.score(x as i32, y as i32, 0);
+            total += score.dest.len();
+            total_rating += score.rating;
         }
     }
     println!("Part 1: {}", total);
+    println!("Part 2: {}", total_rating);
 }
