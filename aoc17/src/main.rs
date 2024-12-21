@@ -1,6 +1,6 @@
 
 
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, Default)]
 struct Cpu {
     a: u64,
     b: u64,
@@ -21,15 +21,21 @@ impl Cpu {
 
     fn run(&mut self, mem: &[u8]) -> Vec<u8> {
         let mut out = vec![];
-        loop {
-            if self.ip >= mem.len() {
-                break;
-            }
-            if let Some(x) = self.step(mem) {
-                out.push(x);
-            }
+        while let Some(x) = self.run_to_out(mem) {
+            out.push(x);
         }
         out
+    }
+
+    fn run_to_out(&mut self, mem: &[u8]) -> Option<u8> {
+        loop {
+            if self.ip >= mem.len() {
+                return None;
+            }
+            if let Some(x) = self.step(mem) {
+                return Some(x);
+            }
+        }
     }
 
     fn step(&mut self, mem: &[u8]) -> Option<u8> {
@@ -93,4 +99,27 @@ fn main() {
         print!(",{}", x);
     }
     println!("");
+
+    for a in 0.. {
+        if a % 1000000 == 0 {
+            print!("a={}\r", a);
+        }
+        let mut cpu: Cpu = Default::default();
+        cpu.a = a;
+        let mut good = true;
+        for &x in &mem {
+            good = match cpu.run_to_out(&mem) {
+                None => false,
+                Some(out) => out == x,
+            };
+            if !good {
+                break;
+            }
+        }
+        if !good || cpu.run_to_out(&mem).is_some() {
+            continue;
+        }
+        println!("Part 2: {}", a);
+        break;
+    }
 }
