@@ -1,13 +1,11 @@
 
 
-
+#[derive(Copy, Clone)]
 struct Cpu {
     a: u64,
     b: u64,
     c: u64,
     ip: usize,
-    mem: Vec<u8>,
-    out: Vec<u64>,
 }
 
 impl Cpu {
@@ -21,54 +19,63 @@ impl Cpu {
         }
     }
 
-    fn run(&mut self) {
+    fn run(&mut self, mem: &[u8]) -> Vec<u8> {
+        let mut out = vec![];
         loop {
-            if self.ip >= self.mem.len() {
+            if self.ip >= mem.len() {
                 break;
             }
-            let opcode = self.mem[self.ip];
-            let operand = self.mem[self.ip + 1];
-
-            match opcode {
-                0 => {
-                    self.a >>= self.combo(operand);
-                    self.ip += 2;
-                }
-                1 => {
-                    self.b ^= operand as u64;
-                    self.ip += 2;
-                }
-                2 => {
-                    self.b = self.combo(operand) % 8;
-                    self.ip += 2;
-                }
-                3 => {
-                    if self.a == 0 {
-                        self.ip += 2;
-                    } else {
-                        self.ip = operand as usize;
-                    }
-                }
-                4 => {
-                    self.b ^= self.c;
-                    self.ip += 2;
-                }
-                5 => {
-                    let x = self.combo(operand) % 8;
-                    self.out.push(x);
-                    self.ip += 2;
-                }
-                6 => {
-                    self.b = self.a >> self.combo(operand);
-                    self.ip += 2;
-                }
-                7 => {
-                    self.c = self.a >> self.combo(operand);
-                    self.ip += 2;
-                }
-                _ => panic!("Invalid opcode {}", opcode)
+            if let Some(x) = self.step(mem) {
+                out.push(x);
             }
         }
+        out
+    }
+
+    fn step(&mut self, mem: &[u8]) -> Option<u8> {
+        let opcode = mem[self.ip];
+        let operand = mem[self.ip + 1];
+
+        match opcode {
+            0 => {
+                self.a >>= self.combo(operand);
+                self.ip += 2;
+            }
+            1 => {
+                self.b ^= operand as u64;
+                self.ip += 2;
+            }
+            2 => {
+                self.b = self.combo(operand) % 8;
+                self.ip += 2;
+            }
+            3 => {
+                if self.a == 0 {
+                    self.ip += 2;
+                } else {
+                    self.ip = operand as usize;
+                }
+            }
+            4 => {
+                self.b ^= self.c;
+                self.ip += 2;
+            }
+            5 => {
+                let x = (self.combo(operand) % 8) as u8;
+                self.ip += 2;
+                return Some(x)
+            }
+            6 => {
+                self.b = self.a >> self.combo(operand);
+                self.ip += 2;
+            }
+            7 => {
+                self.c = self.a >> self.combo(operand);
+                self.ip += 2;
+            }
+            _ => panic!("Invalid opcode {}", opcode)
+        }
+        None
     }
 }
 
@@ -78,12 +85,11 @@ fn main() {
         b: 0,
         c: 0,
         ip: 0,
-        mem: vec![2,4,1,5,7,5,0,3,4,1,1,6,5,5,3,0],
-        out: vec![],
     };
-    cpu.run();
-    print!("Part 1: {}", cpu.out[0]);
-    for x in &cpu.out[1..] {
+    let mem = [2,4,1,5,7,5,0,3,4,1,1,6,5,5,3,0];
+    let out = cpu.run(&mem);
+    print!("Part 1: {}", out[0]);
+    for x in &out[1..] {
         print!(",{}", x);
     }
     println!("");
