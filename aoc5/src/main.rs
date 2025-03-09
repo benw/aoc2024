@@ -4,14 +4,16 @@ fn main() {
     let input = include_str!("input.txt");
 
     let doc = parser::document(input).unwrap();
-    println!("{:#?}", doc);
 
     let mut by_a: HashMap<u32, HashSet<u32>> = HashMap::new();
+    let mut by_b: HashMap<u32, HashSet<u32>> = HashMap::new();
     for rule in &doc.rules {
         by_a.entry(rule.a).or_default().insert(rule.b);
+        by_b.entry(rule.b).or_default().insert(rule.a);
     }
 
-    let mut total = 0;
+    let mut part1_total = 0;
+    let mut part2_total = 0;
     for update in &doc.updates {
         let mut valid = true;
         'update: for (i, a) in update.iter().enumerate() {
@@ -28,10 +30,39 @@ fn main() {
         }
         if valid {
             println!("Valid: {:?}", update);
-            total += middle(update);
+            part1_total += middle(update);
+        } else {
+            println!("Invalid: {:?}", update);
+            let sorted = sort(update, &by_b);
+            part2_total += middle(&sorted);
         }
     }
-    println!("Part 1: {}", total);
+    println!("Part 1: {}", part1_total);
+    println!("Part 2: {}", part2_total);
+}
+
+fn sort(update: &[u32], by_b: &HashMap<u32, HashSet<u32>>) -> Vec<u32> {
+    let mut sorted = vec![];
+    let mut stack = vec![];
+    for &x in update {
+        append_ordered(&mut sorted, x, by_b, &mut stack, update);
+    }
+    sorted
+}
+
+fn append_ordered(sorted: &mut Vec<u32>, x: u32, by_b: &HashMap<u32, HashSet<u32>>, stack: &mut Vec<u32>, update: &[u32]) {
+    if sorted.contains(&x) || stack.contains(&x) || !update.contains(&x) {
+        return;
+    }
+    stack.push(x);
+    // aset is set of values that must appear before x
+    if let Some(aset) = by_b.get(&x) {
+        for &a in aset {
+            append_ordered(sorted, a, by_b, stack, update);
+        }
+    }
+    assert_eq!(x, stack.pop().unwrap());
+    sorted.push(x);
 }
 
 #[derive(Debug)]
