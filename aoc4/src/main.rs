@@ -24,6 +24,18 @@ impl Grid {
             self.get_char(x + dx * 3, y + dy * 3),
         ]
     }
+
+    fn get_cross(&self, x: i32, y: i32) -> [u8; 6] {
+        [
+            self.get_char(x - 1, y - 1),
+            self.get_char(x, y),
+            self.get_char(x + 1, y + 1),
+
+            self.get_char(x - 1, y + 1),
+            self.get_char(x, y),
+            self.get_char(x + 1, y - 1),
+        ]
+    }
 }
 
 fn test_word(word: [u8; 4]) -> u32 {
@@ -32,6 +44,13 @@ fn test_word(word: [u8; 4]) -> u32 {
     } else {
         0
     }
+}
+
+fn test_cross(word: [u8; 6]) -> bool {
+    &word == b"MASMAS"
+    || &word == b"SAMSAM"
+    || &word == b"SAMMAS"
+    || &word == b"MASSAM"
 }
 
 fn main() {
@@ -58,4 +77,14 @@ fn main() {
         }
     }
     println!("Part 1: {}", count);
+
+    let mut count = 0;
+    for y in 0..140 {
+        for x in 0..140 {
+            if test_cross(grid.get_cross(x, y)) {
+                count += 1;
+            }
+        }
+    }
+    println!("Part 2: {}", count);
 }
