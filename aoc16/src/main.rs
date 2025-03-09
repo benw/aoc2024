@@ -1,3 +1,5 @@
+use std::cmp::Ordering;
+use std::collections::BinaryHeap;
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 struct Vect {
@@ -58,9 +60,40 @@ impl Dir {
 }
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
+struct State {
+    pos: Vect,
+    dir: Dir,
+    score: u64,
+}
+
+impl Ord for State {
+    fn cmp(&self, rhs: &Self) -> Ordering {
+        // BinaryHeap is max-heap, but lowest dist come first, so reverse.
+        // In case of a tie we compare pos, dir - this step is necessary
+        // to make implementations of `PartialEq` and `Ord` consistent.
+        rhs.score.cmp(&self.score)
+            .then_with(|| self.pos.y.cmp(&rhs.pos.y))
+            .then_with(|| self.pos.y.cmp(&rhs.pos.x))
+            .then_with(|| self.dir.index().cmp(&rhs.dir.index()))
+    }
+}
+
+impl PartialOrd for State {
+    fn partial_cmp(&self, rhs: &Self) -> Option<Ordering> {
+        Some(self.cmp(rhs))
+    }
+}
+
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
+struct Node {
+    score: u64,
+    prev: Option<State>, // state immediately prior to arriving here
+}
+
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
 struct Cell {
     wall: bool,
-    memo: [Option<u64>; 4],
+    nodes: [Node; 4], // one for each dir we can be facing
 }
 
 #[derive(Debug, Clone)]
@@ -69,32 +102,48 @@ struct Grid {
 }
 
 impl Grid {
-    fn get_mut(&mut self, pos: Vect) -> &mut Cell {
-        &mut self.rows[pos.y as usize][pos.x as usize]
+    fn is_wall(&self, pos: Vect) -> bool {
+        self.rows[pos.y as usize][pos.x as usize].wall
     }
 
-    // get the lowest score to the end, starting at pos, facing direction dir
-    fn score(&mut self, pos: Vect, dir: Dir) -> u64 {
-        let cell = self.get_mut(pos);
-        if cell.wall {
-            // can't get there this way
-            return u64::MAX / 2;
-        }
-        if let Some(score) = cell.memo[dir.index()] {
-            return score;
-        }
-        // temporary, to avoid looping (BUG this approach produces wrong results)
-        cell.memo[dir.index()] = Some(u64::MAX / 2);
+    fn get_mut(&mut self, pos: Vect, dir: Dir) -> &mut Node {
+        &mut self.rows[pos.y as usize][pos.x as usize].nodes[dir.index()]
+    }
 
-        // continue straight, turn left or turn right
-        let score = 1 + self.score(pos + dir.vect(), dir);
-        let score = score.min(1000 + self.score(pos, dir.left()));
-        let score = score.min(1000 + self.score(pos, dir.right()));
-        let score = score.min(2000 + self.score(pos, dir.right().right()));
+    // get the lowest score to the end, starting at start, facing direction dir
+    fn search(&mut self, start_pos: Vect, start_dir: Dir, end_pos: Vect) -> Option<u64> {
+        // Based on example at https://doc.rust-lang.org/std/collections/binary_heap/index.html
+        let mut heap = BinaryHeap::new();
+        self.get_mut(start_pos, start_dir).score = 0;
+        heap.push(State { pos: start_pos, dir: start_dir, score: 0 });
 
-        let cell = self.get_mut(pos);
-        cell.memo[dir.index()] = Some(score);
-        score
+        while let Some(state) = heap.pop() {
+            let State { pos, dir, score } = state;
+            if pos == end_pos {
+                return Some(score);
+            }
+            if self.is_wall(pos) {
+                continue;
+            }
+            let node = self.get_mut(pos, dir);
+            if score > node.score {
+                // We already found a better way here
+                continue;
+            }
+            for next in [
+                State { pos: pos + dir.vect(), dir, score: score + 1 },
+                State { pos, dir: dir.left(), score: score + 1000 },
+                State { pos, dir: dir.right(), score: score + 1000 },
+            ] {
+                let next_cell = self.get_mut(next.pos, next.dir);
+                if next.score < next_cell.score {
+                    heap.push(next);
+                    next_cell.score = next.score;
+                    next_cell.prev = Some(state);
+                }
+            }
+        }
+        None
     }
 }
 
@@ -102,18 +151,18 @@ fn main() {
     let input = include_str!("input.txt");
 
     let mut grid = parser::grid(input).unwrap();
-    let pos = Vect { x: 1, y: grid.rows.len() as i64 - 2 };
+    let start = Vect { x: 1, y: grid.rows.len() as i64 - 2 };
     let dir = Dir::E;
-    println!("Part 1: {}", grid.score(pos, dir));
+    let end = Vect { x: grid.rows[0].len() as i64 - 2, y: 1 };
+    let score = grid.search(start, dir, end).unwrap();
+    println!("Part 1: {}", score);
 }
 
 peg::parser!{
     grammar parser() for str {
         rule cell() -> Cell
-            = "#" { Cell { wall: true, memo: [None; 4] } }
-            / "." { Cell { wall: false, memo: [None; 4] } }
-            / "S" { Cell { wall: false, memo: [None; 4] } }
-            / "E" { Cell { wall: false, memo: [Some(0); 4] } }
+            = "#" { Cell { wall: true, nodes: [ Node { score: u64::MAX, prev: None }; 4] } }
+            / ['.'|'S'|'E'] { Cell { wall: false, nodes: [ Node { score: u64::MAX, prev: None }; 4] } }
 
         rule row() -> Vec<Cell>
             = cell()+
