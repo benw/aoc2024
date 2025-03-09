@@ -1,7 +1,8 @@
 use std::cmp::Ordering;
 use std::collections::BinaryHeap;
+use std::collections::HashSet;
 
-#[derive(Debug, Copy, Clone, PartialEq, Eq)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
 struct Vect {
     x: i64,
     y: i64,
@@ -18,7 +19,7 @@ impl std::ops::Add for Vect {
     }
 }
 
-#[derive(Debug, Copy, Clone, PartialEq, Eq)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
 enum Dir { E, N, W, S }
 
 impl Dir {
@@ -59,7 +60,7 @@ impl Dir {
     }
 }
 
-#[derive(Debug, Copy, Clone, PartialEq, Eq)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
 struct State {
     pos: Vect,
     dir: Dir,
@@ -84,16 +85,30 @@ impl PartialOrd for State {
     }
 }
 
-#[derive(Debug, Copy, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone)]
 struct Node {
     score: u64,
-    prev: Option<State>, // state immediately prior to arriving here
+    prev: HashSet<State>, // states immediately prior to arriving here (with this score)
 }
 
-#[derive(Debug, Copy, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone)]
 struct Cell {
     wall: bool,
     nodes: [Node; 4], // one for each dir we can be facing
+}
+
+impl Cell {
+    fn new(wall: bool) -> Self {
+        Cell {
+            wall,
+            nodes: [
+                Node { score: u64::MAX, prev: HashSet::new() },
+                Node { score: u64::MAX, prev: HashSet::new() },
+                Node { score: u64::MAX, prev: HashSet::new() },
+                Node { score: u64::MAX, prev: HashSet::new() },
+            ]
+        }
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -104,6 +119,10 @@ struct Grid {
 impl Grid {
     fn is_wall(&self, pos: Vect) -> bool {
         self.rows[pos.y as usize][pos.x as usize].wall
+    }
+
+    fn get(&self, pos: Vect, dir: Dir) -> &Node {
+        &self.rows[pos.y as usize][pos.x as usize].nodes[dir.index()]
     }
 
     fn get_mut(&mut self, pos: Vect, dir: Dir) -> &mut Node {
@@ -139,11 +158,28 @@ impl Grid {
                 if next.score < next_cell.score {
                     heap.push(next);
                     next_cell.score = next.score;
-                    next_cell.prev = Some(state);
+                    next_cell.prev = HashSet::from([ state ]);
+                } else if next.score == next_cell.score {
+                    next_cell.prev.insert(state);
                 }
             }
         }
         None
+    }
+
+    fn best_paths(&self, end: Vect) -> HashSet<Vect> {
+        let mut set = HashSet::from([end]);
+        for dir in [Dir::N, Dir::E, Dir::S, Dir::W] {
+            self.traverse_prev(end, dir, &mut set);
+        }
+        set
+    }
+
+    fn traverse_prev(&self, pos: Vect, dir: Dir, set: &mut HashSet<Vect>) {
+        for state in self.get(pos, dir).prev.iter() {
+            set.insert(state.pos);
+            self.traverse_prev(state.pos, state.dir, set);
+        }
     }
 }
 
@@ -156,13 +192,16 @@ fn main() {
     let end = Vect { x: grid.rows[0].len() as i64 - 2, y: 1 };
     let score = grid.search(start, dir, end).unwrap();
     println!("Part 1: {}", score);
+
+    let best = grid.best_paths(end);
+    println!("Part 2: {}", best.len());
 }
 
 peg::parser!{
     grammar parser() for str {
         rule cell() -> Cell
-            = "#" { Cell { wall: true, nodes: [ Node { score: u64::MAX, prev: None }; 4] } }
-            / ['.'|'S'|'E'] { Cell { wall: false, nodes: [ Node { score: u64::MAX, prev: None }; 4] } }
+            = "#" { Cell::new(true) }
+            / ['.'|'S'|'E'] { Cell::new(false) }
 
         rule row() -> Vec<Cell>
             = cell()+
