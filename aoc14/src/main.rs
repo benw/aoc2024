@@ -61,19 +61,18 @@ peg::parser!{
     }
 }
 
-fn main() {
-    // let input = include_str!("sample.txt");
-    // let space = Vect { x: 11, y: 7 };
+const SPACE: Vect = Vect { x: 101, y: 103 };
 
+fn main() {
     let input = include_str!("input.txt");
-    let space = Vect { x: 101, y: 103 };
 
     let mut robots = parser::robots(input).unwrap();
+    let orig_robots = robots.clone();
     for robot in &mut robots {
-        robot.advance(100, space);
+        robot.advance(100, SPACE);
     }
     let mut count = [0; 4];
-    let mid = Vect { x: space.x / 2, y: space.y /  2 };
+    let mid = Vect { x: SPACE.x / 2, y: SPACE.y /  2 };
     for robot in &mut robots {
         if robot.p.y < mid.y {
             if robot.p.x < mid.x {
@@ -94,5 +93,33 @@ fn main() {
     }
     let safety: i64 = count.into_iter().product();
     println!("Part 1: {}", safety);
+
+    let mut robots = orig_robots;
+
+    for robot in &mut robots {
+        robot.advance(70, SPACE);
+    }
+    let mut t = 70;
+    for _ in 0..1000 {
+        println!("t = {}:", t);
+        display(&robots);
+        println!("");
+        for robot in &mut robots {
+            robot.advance(101, SPACE);
+        }
+        t += 101;
+    }    
 }
 
+fn display(robots: &[Robot]) {
+    let mut grid = [['.'; SPACE.x as usize]; SPACE.y as usize];
+    for robot in robots {
+        grid[robot.p.y as usize][robot.p.x as usize] = 'O';
+    }
+    for row in &grid {
+        for c in row {
+            print!("{}", c);
+        }
+        println!("");
+    }
+}
