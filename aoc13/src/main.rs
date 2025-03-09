@@ -1,8 +1,8 @@
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 struct Vect {
-    x: u64,
-    y: u64,
+    x: i64,
+    y: i64,
 }
 
 impl std::ops::Add for Vect {
@@ -16,10 +16,10 @@ impl std::ops::Add for Vect {
     }
 }
 
-impl std::ops::Mul<u64> for Vect {
+impl std::ops::Mul<i64> for Vect {
     type Output = Vect;
 
-    fn mul(self, rhs: u64) -> Self::Output {
+    fn mul(self, rhs: i64) -> Self::Output {
         Vect {
             x: self.x * rhs,
             y: self.y * rhs,
@@ -34,25 +34,45 @@ struct Machine {
     p: Vect,
 }
 
+fn cost(sln: Option<(i64, i64)>) -> Option<i64> {
+    sln.map(|(i, j)| {
+        i * 3 + j
+    })
+}
+
 impl Machine {
-    fn cost(&self) -> Option<u64> {
-        let mut min_tokens = None;
-        for a in 0..100 {
-            for b in 0..100 {
-                let p = self.a * a + self.b * b;
-                if p == self.p {
-                    let tokens = a * 3 + b;
-                    if let Some(min) = min_tokens {
-                        if tokens < min {
-                            min_tokens = Some(tokens);
-                        }
-                    } else {
-                        min_tokens = Some(tokens);
-                    }
-                }
-            }
+    fn solve(&self) -> Option<(i64, i64)> {
+        self.inner(self.p)
+    }
+
+    fn solve_part2(&self) -> Option<(i64, i64)> {
+        self.inner(self.p + Vect { x: 10000000000000, y: 10000000000000 })
+    }
+
+    fn inner(&self, p: Vect) -> Option<(i64, i64)> {
+        let a = self.a;
+        let b = self.b;
+
+        // px = i * ax + j * bx
+        // py = i * ay + j * by
+
+        // i*ax = px - j*bx
+        // i = px/ax - j*bx/ax
+
+        // py = (px/ax - j*bx/ax) * ay + j*by
+        // py = px*ay/ax - j*bx*ay/ax + j*by
+        // py = px*ay/ax + j*(by - bx*ay/ax)
+        // py - px*ay/ax = j*(by - bx*ay/ax)
+        // (py - px*ay/ax)/(by - bx*ay/ax) = j
+
+        let j = (a.x * p.y - p.x * a.y) / (a.x * b.y - b.x * a.y);
+        let i = (p.x - j * b.x) / a.x;
+
+        if a * i + b * j == p {
+            Some((i, j))
+        } else {
+            None
         }
-        min_tokens        
     }
 }
 
@@ -61,18 +81,23 @@ fn main() {
 
     let machines = parser::machines(input).unwrap();
     let mut total = 0;
+    let mut total_part2 = 0;
     for machine in &machines {
-        if let Some(tokens) = machine.cost() {
+        if let Some(tokens) = cost(machine.solve()) {
             total += tokens;
+        }
+        if let Some(tokens) = cost(machine.solve_part2()) {
+            total_part2 += tokens;
         }
     }
     println!("Part 1: {}", total);
+    println!("Part 2: {}", total_part2);
 }
 
 peg::parser!{
     grammar parser() for str {
 
-        rule num() -> u64
+        rule num() -> i64
             = n:$(['0'..='9']+) { n.parse().unwrap() }
         
         rule button() -> Vect
