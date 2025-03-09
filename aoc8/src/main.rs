@@ -31,8 +31,24 @@ fn main() {
             }
         }
     }
-
     println!("Part 1: {}", antinodes.len());
+
+    let mut antinodes: HashSet<(i32, i32)> = HashSet::new();
+    for ants in ants_by_freq.values() {
+        for &a in ants {
+            for &b in ants {
+                if a == b {
+                    continue;
+                }
+                for (x, y) in get_antinodes2(a, b) {
+                    if x >= 0 && x < w && y >= 0 && y < h {
+                        antinodes.insert((x, y));
+                    }
+                }
+            }
+        }
+    }
+    println!("Part 2: {}", antinodes.len());
 }
 
 fn get_antinodes((ax, ay): (i32, i32), (bx, by): (i32, i32)) -> [(i32, i32); 2] {
@@ -42,4 +58,14 @@ fn get_antinodes((ax, ay): (i32, i32), (bx, by): (i32, i32)) -> [(i32, i32); 2] 
         (ax - dx, ay - dy),
         (bx + dx, by + dy),
     ]
+}
+
+fn get_antinodes2((ax, ay): (i32, i32), (bx, by): (i32, i32)) -> Vec<(i32, i32)> {
+    let mut out = Vec::new();
+    let dx = bx - ax;
+    let dy = by - ay;
+    for i in -1000..1000 {
+        out.push((ax - dx * i, ay - dy * i));
+    }
+    out
 }
