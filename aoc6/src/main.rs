@@ -1,3 +1,5 @@
+use std::collections::HashSet;
+
 const W: usize = 130;
 const H: usize = 130;
 
@@ -30,7 +32,14 @@ impl Grid {
     }
 
     fn walk_terminates(&mut self) -> bool {
+        let mut visited = HashSet::new();
         loop {
+            let pos = (self.gx, self.gy, self.dx, self.dy);
+            if visited.contains(&pos) {
+                break false;
+            }
+            visited.insert(pos);
+
             self.rows[self.gy as usize][self.gx as usize] = b'X';
             let next_gx = self.gx + self.dx;
             let next_gy = self.gy + self.dy;
@@ -67,6 +76,7 @@ fn main() {
             }
         }
     }
+    let starting_grid = grid;
     assert!(grid.walk_terminates());
 
     let mut count = 0;
@@ -77,6 +87,20 @@ fn main() {
             }
         }
     }
-
     println!("Part 1: {}", count);
+
+    let mut count = 0;
+    for y in 0..H {
+        for x in 0..W {
+            grid = starting_grid;
+            if grid.rows[y][x] != b'.' {
+                continue;
+            }
+            grid.rows[y][x] = b'O';
+            if !grid.walk_terminates() {
+                count += 1;
+            }
+        }
+    }
+    println!("Part 2: {}", count);
 }
